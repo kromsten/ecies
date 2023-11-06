@@ -1,22 +1,18 @@
-use once_cell::sync::Lazy;
-use parking_lot::RwLock;
+use once_cell::sync::OnceCell;
 
 /// ECIES config. Make sure all parties use the same config
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct Config {
     pub is_ephemeral_key_compressed: bool,
     pub is_hkdf_key_compressed: bool,
 }
 
 /// Global config variable
-pub static ECIES_CONFIG: Lazy<RwLock<Config>> = Lazy::new(|| {
-    let config: Config = Config::default();
-    RwLock::new(config)
-});
+pub static ECIES_CONFIG: OnceCell<Config> = OnceCell::new();
 
 /// Update global config
 pub fn update_config(config: Config) {
-    *ECIES_CONFIG.write() = config;
+    ECIES_CONFIG.set(config).unwrap();
 }
 
 /// Reset global config to default
@@ -26,7 +22,9 @@ pub fn reset_config() {
 
 /// Get ephemeral key compressed or not
 pub fn is_ephemeral_key_compressed() -> bool {
-    ECIES_CONFIG.read().is_ephemeral_key_compressed
+    ECIES_CONFIG.get_or_init(||
+        Config::default()
+    ).is_ephemeral_key_compressed
 }
 
 /// Get ephemeral key size: compressed(33) or uncompressed(65)
@@ -53,5 +51,7 @@ pub fn get_ephemeral_key_size() -> usize {
 
 /// Get hkdf key derived from compressed shared point or not
 pub fn is_hkdf_key_compressed() -> bool {
-    ECIES_CONFIG.read().is_hkdf_key_compressed
+    ECIES_CONFIG.get_or_init(||
+        Config::default()
+    ).is_hkdf_key_compressed
 }

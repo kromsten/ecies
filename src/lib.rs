@@ -27,6 +27,7 @@ mod elliptic;
 
 use config::{get_ephemeral_key_size, is_ephemeral_key_compressed};
 use elliptic::{decapsulate, encapsulate, generate_keypair, parse_pk, parse_sk, pk_to_vec, Error};
+use rand_core::RngCore;
 use symmetric::{sym_decrypt, sym_encrypt};
 
 use crate::compat::Vec;
@@ -37,12 +38,12 @@ use crate::compat::Vec;
 ///
 /// * `receiver_pub` - The u8 array reference of a receiver's public key
 /// * `msg` - The u8 array reference of the message to encrypt
-pub fn encrypt(receiver_pub: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error> {
+pub fn encrypt(receiver_pub: &[u8], msg: &[u8], rng: &mut impl RngCore) -> Result<Vec<u8>, Error> {
     let receiver_pk = parse_pk(receiver_pub)?;
-    let (ephemeral_sk, ephemeral_pk) = generate_keypair();
+    let (ephemeral_sk, ephemeral_pk) = generate_keypair(rng);
 
     let aes_key = encapsulate(&ephemeral_sk, &receiver_pk)?;
-    let encrypted = sym_encrypt(&aes_key, msg).ok_or(Error::InvalidMessage)?;
+    let encrypted = sym_encrypt(&aes_key, msg, rng).ok_or(Error::InvalidMessage)?;
 
     let is_compressed = is_ephemeral_key_compressed();
     let key_size = get_ephemeral_key_size();

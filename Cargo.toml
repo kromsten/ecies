@@ -38,8 +38,8 @@ typenum = {version = "1.17.0", default-features = false, optional = true}
 chacha20poly1305 = {version = "0.10.1", default-features = false, optional = true}
 
 # random number generator
-getrandom = {version = "0.2.10", default-features = false}
-rand_core = {version = "0.6.4", default-features = false, features = ["getrandom"]}
+#getrandom = {version = "0.2.10", default-features = false}
+rand_core = {version = "0.6.4", default-features = false, features = []}
 
 # configuration
 once_cell = {version = "1.18.0", default-features = false}
@@ -47,9 +47,9 @@ parking_lot = "0.12.1"
 
 [target.'cfg(all(target_arch = "wasm32", target_os="unknown"))'.dependencies]
 # only for js (browser or node). if it's not js, like substrate, it won't build
-getrandom = {version = "0.2.10", default-features = false, features = ["js"]}
-once_cell = {version = "1.18.0", default-features = false, features = ["std"]}
-wasm-bindgen = {version = "0.2.87", default-features = false}
+#getrandom = {version = "0.2.10", default-features = false, features = ["js"]}
+once_cell = {version = "1.18.0", default-features = false, features = []}
+#wasm-bindgen = {version = "0.2.87", default-features = false}
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os="unknown")))'.dependencies]
 # allows wasm32-wasi to build

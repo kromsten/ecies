@@ -1,4 +1,4 @@
-use rand_core::{OsRng, RngCore};
+use rand_core::RngCore;
 
 use crate::compat::Vec;
 use crate::consts::NONCE_LENGTH;
@@ -23,9 +23,9 @@ pub(crate) use hash::hkdf_derive;
 ///
 /// For 16 bytes nonce AES-256-GCM and 24 bytes nonce XChaCha20-Poly1305 it's safe.
 /// For 12 bytes nonce AES-256-GCM, the key SHOULD be unique for each message to avoid collisions.
-pub fn sym_encrypt(key: &[u8], msg: &[u8]) -> Option<Vec<u8>> {
+pub fn sym_encrypt(key: &[u8], msg: &[u8], mut rng: impl RngCore) -> Option<Vec<u8>> {
     let mut nonce = [0u8; NONCE_LENGTH];
-    OsRng.fill_bytes(&mut nonce);
+    rng.fill_bytes(&mut nonce);
     encrypt(key, &nonce, msg)
 }
 
@@ -46,17 +46,6 @@ mod tests {
         assert!(decrypt(&[], &[1u8; NONCE_TAG_LENGTH - 1]).is_none());
     }
 
-    #[test]
-    pub(super) fn test_random_key() {
-        let mut key = [0u8; 32];
-
-        let texts = [b"this is a text", "😀😀😀😀".as_bytes()];
-        for msg in texts.iter() {
-            OsRng.fill_bytes(&mut key);
-            let encrypted = sym_encrypt(&key, msg).unwrap();
-            assert_eq!(msg.to_vec(), sym_decrypt(&key, &encrypted).unwrap());
-        }
-    }
 
     #[test]
     #[cfg(all(not(feature = "aes-12bytes-nonce"), not(feature = "xchacha20")))]

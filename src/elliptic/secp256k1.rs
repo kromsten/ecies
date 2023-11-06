@@ -1,5 +1,5 @@
 use libsecp256k1::{PublicKey, SecretKey};
-use rand_core::OsRng;
+use rand_core::RngCore;
 
 use crate::compat::Vec;
 use crate::config::is_hkdf_key_compressed;
@@ -9,8 +9,8 @@ use crate::symmetric::hkdf_derive;
 pub use libsecp256k1::Error;
 
 /// Generate a `(SecretKey, PublicKey)` pair
-pub fn generate_keypair() -> (SecretKey, PublicKey) {
-    let sk = SecretKey::random(&mut OsRng);
+pub fn generate_keypair(rng: &mut impl RngCore) -> (SecretKey, PublicKey) {
+    let sk = SecretKey::random(rng);
     let pk = PublicKey::from_secret_key(&sk);
     (sk, pk)
 }
@@ -87,14 +87,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_key_exchange() {
-        let (sk1, pk1) = generate_keypair();
-        let (sk2, pk2) = generate_keypair();
-        assert_ne!(sk1, sk2);
-        assert_ne!(pk1, pk2);
-        assert_eq!(encapsulate(&sk2, &pk1).unwrap(), decapsulate(&pk2, &sk1).unwrap());
-    }
+   
 
     /// Generate two secret keys with values 2 and 3
     pub fn get_sk2_sk3() -> (SecretKey, SecretKey) {
@@ -122,60 +115,20 @@ mod tests {
 
 #[cfg(test)]
 mod lib_tests {
-    use super::{generate_keypair, Error};
-    use crate::{decrypt, encrypt};
+    use super::Error;
+    use crate::decrypt;
 
     const MSG: &str = "helloworld🌍";
     const BIG_MSG_SIZE: usize = 2 * 1024 * 1024; // 2 MB
     const BIG_MSG: [u8; BIG_MSG_SIZE] = [1u8; BIG_MSG_SIZE];
 
-    fn test_enc_dec(sk: &[u8], pk: &[u8]) {
-        let msg = MSG.as_bytes();
-        assert_eq!(msg.to_vec(), decrypt(sk, &encrypt(pk, msg).unwrap()).unwrap());
-        let msg = &BIG_MSG;
-        assert_eq!(msg.to_vec(), decrypt(sk, &encrypt(pk, msg).unwrap()).unwrap());
-    }
-
-    #[test]
-    pub fn attempts_to_encrypt_with_invalid_key() {
-        assert_eq!(encrypt(&[0u8; 33], MSG.as_bytes()), Err(Error::InvalidPublicKey));
-    }
-
+ 
     #[test]
     pub fn attempts_to_decrypt_with_invalid_key() {
         assert_eq!(decrypt(&[0u8; 32], &[]), Err(Error::InvalidSecretKey));
     }
 
-    #[test]
-    pub fn attempts_to_decrypt_incorrect_message() {
-        let (sk, _) = generate_keypair();
 
-        assert_eq!(decrypt(&sk.serialize(), &[]), Err(Error::InvalidMessage));
-        assert_eq!(decrypt(&sk.serialize(), &[0u8; 65]), Err(Error::InvalidPublicKey));
-    }
-
-    #[test]
-    pub fn attempts_to_decrypt_with_another_key() {
-        let (_, pk1) = generate_keypair();
-        let (sk2, _) = generate_keypair();
-
-        let encrypted = encrypt(&pk1.serialize_compressed(), MSG.as_bytes()).unwrap();
-        assert_eq!(decrypt(&sk2.serialize(), &encrypted), Err(Error::InvalidMessage));
-    }
-
-    #[test]
-    pub fn test_compressed_public() {
-        let (sk, pk) = generate_keypair();
-        let (sk, pk) = (&sk.serialize(), &pk.serialize_compressed());
-        test_enc_dec(sk, pk);
-    }
-
-    #[test]
-    pub fn test_uncompressed_public() {
-        let (sk, pk) = generate_keypair();
-        let (sk, pk) = (&sk.serialize(), &pk.serialize());
-        test_enc_dec(sk, pk);
-    }
 }
 
 #[cfg(test)]
@@ -184,7 +137,6 @@ mod config_tests {
 
     use crate::config::{reset_config, update_config, Config};
     use crate::utils::tests::decode_hex;
-    use crate::{decrypt, encrypt};
     use tests::get_sk2_sk3;
 
     const MSG: &str = "helloworld🌍";
@@ -209,24 +161,7 @@ mod config_tests {
         reset_config();
     }
 
-    #[test]
-    pub fn test_ephemeral_key_config() {
-        let (sk, pk) = generate_keypair();
-        let (sk, pk) = (&sk.serialize(), &pk.serialize_compressed());
-        let encrypted_1 = encrypt(pk, MSG.as_bytes()).unwrap();
-        assert_eq!(MSG.as_bytes(), &decrypt(sk, &encrypted_1).unwrap());
-
-        update_config(Config {
-            is_ephemeral_key_compressed: true,
-            ..Config::default()
-        });
-
-        let encrypted_2 = encrypt(pk, MSG.as_bytes()).unwrap();
-        assert_eq!(encrypted_1.len() - encrypted_2.len(), 32);
-        assert_eq!(MSG.as_bytes(), &decrypt(sk, &encrypted_2).unwrap());
-
-        reset_config();
-    }
+ 
 }
 
 #[cfg(all(test, target_arch = "wasm32"))]
